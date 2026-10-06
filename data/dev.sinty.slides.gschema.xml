@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist>
+  <schema id="dev.sinty.slides" path="/dev/sinty/slides/">
+    <key name="default-theme" type="s">
+      <default>'clean'</default>
+      <summary>Theme used for new presentations</summary>
+    </key>
+    <key name="default-aspect" type="s">
+      <choices>
+        <choice value="16:9"/>
+        <choice value="4:3"/>
+        <choice value="16:10"/>
+      </choices>
+      <default>'16:9'</default>
+      <summary>Slide size used for new presentations</summary>
+    </key>
+    <key name="snap-to-guides" type="b">
+      <default>true</default>
+      <summary>Snap objects to alignment guides while moving them</summary>
+    </key>
+    <key name="show-notes" type="b">
+      <default>true</default>
+      <summary>Show the speaker notes below the slide</summary>
+    </key>
+    <key name="presenter-view" type="b">
+      <default>true</default>
+      <summary>Show the presenter view while presenting</summary>
+    </key>
+    <key name="presenter-in-window" type="b">
+      <default>false</default>
+      <summary>Show the presenter view in a window even when a second screen is connected</summary>
+    </key>
+    <key name="laser-color" type="s">
+      <default>'#ff3b30'</default>
+      <summary>Colour of the laser pointer</summary>
+    </key>
+    <key name="pen-color" type="s">
+      <default>'#ffcc00'</default>
+      <summary>Colour of the pen used to draw on slides</summary>
+    </key>
+    <key name="export-width" type="i">
+      <range min="320" max="7680"/>
+      <default>1920</default>
+      <summary>Width in pixels of exported slide images</summary>
+    </key>
+    <key name="autosave-interval" type="i">
+      <range min="0" max="3600"/>
+      <default>0</default>
+      <summary>Autosave interval in seconds, 0 to disable</summary>
+    </key>
+    <key name="caption-command" type="s">
+      <default>''</default>
+      <summary>Command that prints live captions from the microphone, one line at a time</summary>
+    </key>
+  </schema>
+</schemalist>

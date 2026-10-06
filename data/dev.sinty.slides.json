@@ -1,0 +1,99 @@
+{
+    "schema-id": "dev.sinty.slides",
+    "settings": [
+        {
+            "key": "default-theme",
+            "label": "Theme for New Presentations",
+            "type": "string",
+            "widget": "combo",
+            "options": [
+                {
+                    "id": "clean",
+                    "label": "Clean"
+                },
+                {
+                    "id": "midnight",
+                    "label": "Midnight"
+                },
+                {
+                    "id": "coral",
+                    "label": "Coral"
+                },
+                {
+                    "id": "forest",
+                    "label": "Forest"
+                },
+                {
+                    "id": "slate",
+                    "label": "Slate"
+                },
+                {
+                    "id": "paper",
+                    "label": "Paper"
+                },
+                {
+                    "id": "vivid",
+                    "label": "Vivid"
+                },
+                {
+                    "id": "mono",
+                    "label": "Monochrome"
+                }
+            ]
+        },
+        {
+            "key": "default-aspect",
+            "label": "Slide Size for New Presentations",
+            "type": "string",
+            "widget": "combo",
+            "options": [
+                {
+                    "id": "16:9",
+                    "label": "Widescreen (16:9)"
+                },
+                {
+                    "id": "4:3",
+                    "label": "Standard (4:3)"
+                },
+                {
+                    "id": "16:10",
+                    "label": "16:10"
+                }
+            ]
+        },
+        {
+            "key": "snap-to-guides",
+            "label": "Snap to Alignment Guides",
+            "type": "boolean",
+            "widget": "toggle"
+        },
+        {
+            "key": "presenter-view",
+            "label": "Show Presenter View When Presenting",
+            "type": "boolean",
+            "widget": "toggle"
+        },
+        {
+            "key": "presenter-in-window",
+            "label": "Presenter View in a Window",
+            "type": "boolean",
+            "widget": "toggle",
+            "subtitle": "Use a window even when a second screen is connected"
+        },
+        {
+            "key": "export-width",
+            "label": "Exported Image Width",
+            "type": "int",
+            "widget": "spin",
+            "min": 320,
+            "max": 7680
+        },
+        {
+            "key": "caption-command",
+            "label": "Live Captions Command",
+            "type": "string",
+            "widget": "entry",
+            "subtitle": "A speech recognizer that prints what you say, one line at a time"
+        }
+    ]
+}

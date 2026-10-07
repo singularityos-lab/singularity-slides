@@ -50,6 +50,7 @@ namespace Singularity.Apps.Slides {
         private Gee.ArrayList<Element> element_clip = new Gee.ArrayList<Element> ();
         private string[] doc_actions = {};
         private const string CLIP_MIME = "application/x-singularity-slides";
+        private const string CHART_LINK_MIME = "application/x-singularity-chart-link";
 
         public SlidesWindow (SlidesApp app) {
             Object (application: app);
@@ -431,6 +432,49 @@ namespace Singularity.Apps.Slides {
             aspect_size (app.get_string ("default-aspect", "16:9"), out w, out h);
             var d = new Document (Factory.new_presentation (preset, w, h));
             load_document (d);
+        }
+
+        public void new_from_outline (string outline) {
+            var preset = ThemePreset.find (app.get_string ("default-theme", "clean")) ?? ThemePreset.all ()[0];
+            double w, h;
+            aspect_size (app.get_string ("default-aspect", "16:9"), out w, out h);
+            var p = DeckOutline.from_text (outline, Factory.new_presentation (preset, w, h));
+            if (p.slides.size == 0) return;
+            load_or_open_new (new Document (p));
+        }
+
+        public void new_from_images (string title, string[] uris) {
+            var preset = ThemePreset.find (app.get_string ("default-theme", "clean")) ?? ThemePreset.all ()[0];
+            double w, h;
+            aspect_size (app.get_string ("default-aspect", "16:9"), out w, out h);
+            var p = Factory.new_presentation (preset, w, h);
+            var cover = p.slides[0].placeholder (PlaceholderKind.TITLE);
+            if (cover != null && cover.text_body () != null) cover.text_body ().set_plain (title);
+            var blank = p.master.layout_of_kind (LayoutKind.BLANK);
+            foreach (string uri in uris) {
+                string? path = File.new_for_uri (uri).get_path ();
+                if (path == null) continue;
+                uint8[] data;
+                try {
+                    FileUtils.get_data (path, out data);
+                } catch (Error e) {
+                    continue;
+                }
+                var bytes = new Bytes (data);
+                int pw, ph;
+                if (!ImageCache.size_of (bytes, out pw, out ph) || pw <= 0 || ph <= 0) continue;
+                var s = Factory.add_slide (p, blank, p.slides.size);
+                var img = new ImageElement (bytes, ImageElement.mime_for (Path.get_basename (path)));
+                img.pixel_width = pw;
+                img.pixel_height = ph;
+                img.name = Path.get_basename (path);
+                double sc = double.min (w / pw, h / ph);
+                img.set_geometry ((w - pw * sc) / 2, (h - ph * sc) / 2, pw * sc, ph * sc);
+                p.assign_ids (img);
+                s.elements.add (img);
+            }
+            if (p.slides.size < 2) return;
+            load_or_open_new (new Document (p));
         }
 
         public static void aspect_size (string aspect, out double w, out double h) {
@@ -1234,6 +1278,7 @@ namespace Singularity.Apps.Slides {
                 else paste.begin (false);
             });
             act ("paste-style", () => paste.begin (true));
+            act ("update-charts", () => update_linked_charts.begin ());
             act ("duplicate", () => {
                 if (focus_in_slides_list () || sel ().size == 0) duplicate_slides ();
                 else duplicate_elements ();
@@ -2465,6 +2510,62 @@ namespace Singularity.Apps.Slides {
             canvas.queue_draw ();
         }
 
+        private async void update_linked_charts () {
+            var targets = new Gee.ArrayList<ChartElement> ();
+            var specs = new Gee.ArrayList<Singularity.Charts.ChartSpec> ();
+            int failed = 0;
+            string last_error = "";
+            var all = new Gee.ArrayList<Element> ();
+            foreach (var s in doc.pres.slides) all.add_all (s.elements);
+            foreach (var e in all) {
+                var ch = e as ChartElement;
+                if (ch == null || ch.link == "") continue;
+                string[] parts = ch.link.split ("\t");
+                if (parts.length < 3) continue;
+                try {
+                    var bus = yield GLib.Bus.get (BusType.SESSION);
+                    var reply = yield bus.call ("dev.sinty.spreadsheet", "/dev/sinty/spreadsheet/Charts", "dev.sinty.Spreadsheet1", "ChartXml",
+                        new Variant ("(sss)", parts[0], parts[1], parts[2]), new VariantType ("(s)"), DBusCallFlags.NONE, 30000, null);
+                    var spec = Singularity.Charts.DrawingML.read_chart (reply.get_child_value (0).get_string ());
+                    if (spec == null) throw new IOError.INVALID_DATA (_("The chart could not be read"));
+                    targets.add (ch);
+                    specs.add (spec);
+                } catch (Error e) {
+                    failed++;
+                    if (e is DBusError.SERVICE_UNKNOWN) {
+                        last_error = _("Spreadsheet is not available");
+                    } else {
+                        DBusError.strip_remote_error (e);
+                        last_error = e.message;
+                    }
+                }
+            }
+            if (targets.size > 0) {
+                ChartElement? reselect = null;
+                edit (_("Update Linked Charts"), () => {
+                    for (int i = 0; i < targets.size; i++) {
+                        var old = targets[i];
+                        var fresh = ChartBridge.from_spec (specs[i]);
+                        fresh.id = old.id;
+                        fresh.name = old.name;
+                        fresh.description = old.description;
+                        fresh.link = old.link;
+                        fresh.set_geometry (old.x, old.y, old.w, old.h);
+                        foreach (var s in doc.pres.slides) {
+                            int at = s.elements.index_of (old);
+                            if (at >= 0) s.elements[at] = fresh;
+                        }
+                        if (canvas.selection.contains (old)) reselect = fresh;
+                    }
+                });
+                if (reselect != null) canvas.select (reselect);
+            }
+            int updated = targets.size;
+            if (updated + failed == 0) add_toast (new Toast (_("This presentation has no linked charts")));
+            else if (failed == 0) add_toast (new Toast (ngettext ("%d linked chart updated", "%d linked charts updated", updated).printf (updated)));
+            else add_toast (new Toast (_("%d updated, %d could not be updated: %s").printf (updated, failed, last_error)));
+        }
+
         private async void paste (bool match_style) {
             if (doc == null) return;
             canvas.commit_edit ();
@@ -2475,6 +2576,33 @@ namespace Singularity.Apps.Slides {
                 return;
             }
             try {
+                if (formats.contain_mime_type (CHART_LINK_MIME)) {
+                    string link_mime;
+                    var link_stream = yield cb.read_async ({ CHART_LINK_MIME }, Priority.DEFAULT, null, out link_mime);
+                    var link_mem = new MemoryOutputStream.resizable ();
+                    yield link_mem.splice_async (link_stream, OutputStreamSpliceFlags.CLOSE_SOURCE | OutputStreamSpliceFlags.CLOSE_TARGET, Priority.DEFAULT, null);
+                    uint8[] link_data = link_mem.steal_data ();
+                    link_data.length = (int) link_mem.get_data_size ();
+                    var link_text = new StringBuilder ();
+                    link_text.append_len ((string) link_data, link_data.length);
+                    string payload = link_text.str;
+                    int nl = payload.index_of_char ('\n');
+                    var spec = nl > 0 ? Singularity.Charts.DrawingML.read_chart (payload.substring (nl + 1)) : null;
+                    if (spec != null) {
+                        var p = doc.pres;
+                        var ch = ChartBridge.from_spec (spec);
+                        ch.link = payload.substring (0, nl);
+                        var ph = empty_content_placeholder ();
+                        if (ph != null) {
+                            ch.set_geometry (ph.x, ph.y, ph.w, ph.h);
+                            replace_placeholder (ph, ch, _("Paste"));
+                            return;
+                        }
+                        ch.set_geometry (p.width * 0.15, p.height * 0.2, p.width * 0.7, p.height * 0.65);
+                        add_element (ch, _("Paste"));
+                        return;
+                    }
+                }
                 if (formats.contain_mime_type (CLIP_MIME)) {
                     string out_mime;
                     var stream = yield cb.read_async ({ CLIP_MIME }, Priority.DEFAULT, null, out out_mime);
@@ -2500,6 +2628,18 @@ namespace Singularity.Apps.Slides {
                         }
                     }
                     if (any) return;
+                }
+                if (formats.contain_mime_type ("image/svg+xml")) {
+                    string svg_mime;
+                    var svg_stream = yield cb.read_async ({ "image/svg+xml" }, Priority.DEFAULT, null, out svg_mime);
+                    var svg_mem = new MemoryOutputStream.resizable ();
+                    yield svg_mem.splice_async (svg_stream, OutputStreamSpliceFlags.CLOSE_SOURCE | OutputStreamSpliceFlags.CLOSE_TARGET, Priority.DEFAULT, null);
+                    uint8[] svg = svg_mem.steal_data ();
+                    svg.length = (int) svg_mem.get_data_size ();
+                    if (svg.length > 0) {
+                        insert_image (new Bytes (svg), "image/svg+xml", _("Drawing"));
+                        return;
+                    }
                 }
                 if (formats.contain_gtype (typeof (Gdk.Texture)) && !formats.contain_mime_type ("text/plain")) {
                     var tex = yield cb.read_texture_async (null);

@@ -1429,6 +1429,9 @@ namespace Singularity.Apps.Slides {
             e.id = XmlIn.int_attr (c, "id", 0);
             e.name = XmlIn.attr (c, "name") ?? "";
             e.description = XmlIn.attr (c, "descr") ?? "";
+            var linked = e as ChartElement;
+            string link_title = XmlIn.attr (c, "title") ?? "";
+            if (linked != null && link_title.has_prefix (ChartElement.LINK_PREFIX)) linked.link = Uri.unescape_string (link_title.substring (ChartElement.LINK_PREFIX.length)) ?? "";
             e.click = read_action (XmlIn.child (c, "hlinkClick"));
             e.hover = read_action (XmlIn.child (c, "hlinkHover"));
             Xml.Node* ph = XmlIn.find (nv, "nvPr/ph");

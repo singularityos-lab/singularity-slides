@@ -1040,6 +1040,8 @@ namespace Singularity.Apps.Slides {
         public ChartAxis sec_axis = new ChartAxis ();
         public ForeignElement? original = null;
         public string original_sig = "";
+        public const string LINK_PREFIX = "sinty-chart-link:";
+        public string link = "";
 
         public override ElementKind kind {
             get { return ElementKind.CHART; }
@@ -1090,6 +1092,7 @@ namespace Singularity.Apps.Slides {
             copy_base (c);
             c.grouping = grouping;
             c.title = title;
+            c.link = link;
             c.legend = legend;
             c.data_labels = data_labels;
             c.gridlines = gridlines;

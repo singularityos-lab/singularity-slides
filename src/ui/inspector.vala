@@ -118,6 +118,13 @@ namespace Singularity.Apps.Slides {
                 std.append (b);
             }
             box.append (std);
+            var recent = new Singularity.Widgets.RecentColorsRow (10);
+            recent.picked.connect ((h) => {
+                pop.popdown ();
+                set_spec (h);
+                chosen (h);
+            });
+            box.append (recent);
             var actions = new Box (Orientation.HORIZONTAL, 6);
             if (allow_none) {
                 var none = new Button.with_label (_("No Color"));

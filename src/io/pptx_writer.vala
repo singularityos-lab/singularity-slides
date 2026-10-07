@@ -913,6 +913,8 @@ namespace Singularity.Apps.Slides {
         private void c_nv_pr (XmlOut x, Element e, string tag = "p:cNvPr") {
             x.start (tag).ai ("id", id_of (e)).a ("name", e.name);
             if (e.description != "") x.a ("descr", e.description);
+            var linked = e as ChartElement;
+            if (linked != null && linked.link != "") x.a ("title", ChartElement.LINK_PREFIX + Uri.escape_string (linked.link, "/", true));
             if (e.click != null) action (x, "a:hlinkClick", e.click);
             if (e.hover != null) action (x, "a:hlinkHover", e.hover);
             x.end ();

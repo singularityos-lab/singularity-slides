@@ -229,6 +229,8 @@ namespace Singularity.Apps.Slides {
                     var kk = k;
                     m.add_item (k.label (), null, () => win.insert_chart (kk));
                 }
+                m.add_separator ();
+                m.add_item (_("Update Linked Charts"), "view-refresh-symbolic", () => win.run ("update-charts"));
             });
             c.add_separator ();
             c.add_button ("insert-text-symbolic", _("Text Box"), null, "win.insert-text");

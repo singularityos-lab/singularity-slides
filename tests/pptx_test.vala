@@ -235,6 +235,7 @@ void compare_element (Element a, Element b, Theme ta, Theme tb, bool ids, string
             check (ca.chart == cb.chart, w + ": chart kind %s vs %s".printf (ca.chart.label (), cb.chart.label ()));
             if (!ca.chart.is_radial ()) check (ca.grouping == cb.grouping, w + ": grouping");
             check (ca.title == cb.title && ca.legend == cb.legend, w + ": title/legend");
+            check (ca.link == cb.link, w + ": linked chart source");
             check (ca.data_labels == cb.data_labels, w + ": labels");
             if (!ca.chart.is_radial ()) check (ca.gridlines == cb.gridlines, w + ": gridlines");
             if (ca.chart == ChartKind.LINE || ca.chart == ChartKind.SCATTER) check (ca.smooth == cb.smooth, w + ": smooth");
@@ -684,6 +685,7 @@ Presentation synthetic () {
         ch.series[0].color = "accent6";
         if (ch.series.size > 1) ch.series[1].values[2] = null;
         ch.text_color = i == 0 ? "#333333" : "";
+        ch.link = i == 0 ? "/home/user/Documents/Quarterly Sales.xlsx\tCombo\t#0" : "";
         ch.name = "Chart %d".printf (i);
         p.assign_ids (ch);
         s.elements.add (ch);

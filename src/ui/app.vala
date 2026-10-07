@@ -57,6 +57,28 @@ namespace Singularity.Apps.Slides {
                 }
             });
             add_action (new_action);
+            var outline_action = new SimpleAction ("new-from-outline", VariantType.STRING);
+            outline_action.activate.connect ((a, p) => {
+                var w = get_active_window () as SlidesWindow;
+                if (w == null) {
+                    w = new SlidesWindow (this);
+                    w.present ();
+                }
+                w.new_from_outline (p.get_string ());
+            });
+            add_action (outline_action);
+            var images_action = new SimpleAction ("new-from-images", new VariantType ("(sas)"));
+            images_action.activate.connect ((a, p) => {
+                string title = p.get_child_value (0).get_string ();
+                string[] uris = p.get_child_value (1).get_strv ();
+                var w = get_active_window () as SlidesWindow;
+                if (w == null) {
+                    w = new SlidesWindow (this);
+                    w.present ();
+                }
+                w.new_from_images (title, uris);
+            });
+            add_action (images_action);
             var template_action = new SimpleAction ("new-from-template", null);
             template_action.activate.connect (() => {
                 var w = get_active_window () as SlidesWindow;
@@ -197,6 +219,7 @@ namespace Singularity.Apps.Slides {
             var objects = section ({ { _("Text Box"), "win.insert-text" }, { _("Image…"), "win.insert-image" }, { _("Icons…"), "win.insert-icons" }, { _("Stock Images…"), "win.insert-stock" }, { _("3D Model…"), "win.insert-model" }, { _("SmartArt…"), "win.insert-smartart" }, { _("Equation…"), "win.insert-equation" }, { _("Table…"), "win.insert-table" } });
             shapes.append_section (null, section ({ { _("All Shapes…"), "win.insert-shapes" } }));
             objects.append_submenu (_("Shape"), shapes);
+            charts.append_section (null, section ({ { _("Update Linked Charts"), "win.update-charts" } }));
             objects.append_submenu (_("Chart"), charts);
             insert.append_section (null, objects);
             var media = section ({ { _("Video…"), "win.insert-video" }, { _("Audio…"), "win.insert-audio" }, { _("Record Audio…"), "win.record-audio" }, { _("Screen Recording…"), "win.record-screen" } });

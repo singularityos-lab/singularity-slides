@@ -165,6 +165,7 @@ ui = files(
   'src/ui/language_tools.vala',
   'src/ui/outline_panel.vala',
   'src/ui/live_session.vala',
+  'src/ui/collab_bus.vala',
 )
 
 executable('singularity-slides',
@@ -195,4 +196,17 @@ install_data('data/dev.sinty.slides.open.ini',
 )
 install_data('data/icons/dev.sinty.slides.svg',
   install_dir: get_option('datadir') / 'icons' / 'hicolor' / 'scalable' / 'apps'
+)
+
+install_data('data/capabilities/dev.sinty.Collab.Presentation1.ini',
+  install_dir: get_option('datadir') / 'singularity' / 'capabilities')
+
+slides_service_conf = configuration_data()
+slides_service_conf.set('bindir', get_option('prefix') / get_option('bindir'))
+configure_file(
+  input: 'data/dev.sinty.slides.service.in',
+  output: 'dev.sinty.slides.service',
+  configuration: slides_service_conf,
+  install: true,
+  install_dir: get_option('datadir') / 'dbus-1' / 'services'
 )

@@ -880,9 +880,53 @@ namespace Singularity.Apps.Slides {
             dlg.open_dialog ();
         }
 
+        private static void live_people (SlidesWindow win, Box box, Singularity.Widgets.AppDialog dlg, bool inviting) {
+            if (!Singularity.Collab.Client.installed ()) return;
+            var client = Singularity.Collab.Client.get_default ();
+            var g = new PreferencesGroup (inviting ? _("Invite More People") : _("People Nearby"),
+                _("They are asked to accept, then they edit with you in real time"));
+            box.prepend (g);
+            client.refresh_people.begin ((o, res) => {
+                client.refresh_people.end (res);
+                int shown = 0;
+                foreach (var p in client.people) {
+                    if (!p.can_join) continue;
+                    var person = p;
+                    var row = new ActionRow (p.name, p.provider_name, p.icon_name);
+                    row.activatable = true;
+                    row.activated.connect (() => {
+                        dlg.close ();
+                        win.start_live_collab (person);
+                    });
+                    g.add_row (row);
+                    shown++;
+                }
+                if (shown == 0) {
+                    var none = new ActionRow (_("Nobody Is Reachable"), _("Pair a computer in Settings, Connected Devices"), "network-offline-symbolic");
+                    none.activatable = false;
+                    g.add_row (none);
+                }
+            });
+        }
+
         public static void live (SlidesWindow win) {
             var dlg = Dialogs.make (win, _("Edit Together"), 500, 560);
             var box = Dialogs.body (dlg);
+            if (win.live != null && win.live.collab) {
+                var cg = new PreferencesGroup (win.live.hosting ? _("Sharing This Presentation") : _("Joined a Presentation"), _("Shared with people nearby"));
+                box.append (cg);
+                var cp = new PreferencesGroup (_("People"));
+                cp.add_row (new ActionRow (CommentsPanel.me (), _("You")));
+                foreach (var p in win.live.peers.values) {
+                    int i = p.slide >= 0 ? win.doc.pres.index_of_uid (p.slide) : -1;
+                    cp.add_row (new ActionRow (p.name, i >= 0 ? _("On slide %d").printf (i + 1) : null));
+                }
+                box.append (cp);
+                if (win.live.hosting) live_people (win, box, dlg, true);
+                Dialogs.footer (dlg, win.live.hosting ? _("Stop Sharing") : _("Leave"), () => win.stop_live ());
+                dlg.open_dialog ();
+                return;
+            }
             if (win.live != null) {
                 var g = new PreferencesGroup (win.live.hosting ? _("Sharing This Presentation") : _("Joined a Presentation"), _("Everyone with the link can edit at the same time"));
                 var link = new ActionRow (_("Link"), win.live.link);
@@ -907,6 +951,7 @@ namespace Singularity.Apps.Slides {
                 dlg.open_dialog ();
                 return;
             }
+            live_people (win, box, dlg, false);
             var hg = new PreferencesGroup (_("Share"), _("Let people on this network edit this presentation with you in real time"));
             var start = new ActionRow (_("Start a Live Session"), _("You get a link to send to others"));
             var sb = new Button.with_label (_("Start"));

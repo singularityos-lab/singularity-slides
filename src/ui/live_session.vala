@@ -26,6 +26,11 @@ namespace Singularity.Apps.Slides {
         private Gee.ArrayList<int> current_order = new Gee.ArrayList<int> ();
         private int next_id = 1;
         private Soup.WebsocketConnection? ws = null;
+        public string collab_session = "";
+        public bool collab = false;
+        private ulong collab_raw_id = 0;
+        private ulong collab_joined_id = 0;
+        private ulong collab_ended_id = 0;
 
         public LiveSession (string name) {
             this.name = name;
@@ -253,6 +258,111 @@ namespace Singularity.Apps.Slides {
             peers_changed ();
         }
 
+        private Json.Object snapshot_json () {
+            var o = new Json.Object ();
+            o.set_string_member ("deck", current_deck);
+            o.set_array_member ("order", ints (current_order));
+            return o;
+        }
+
+        private Json.Object presence_json () {
+            var o = new Json.Object ();
+            o.set_string_member ("t", "presence");
+            o.set_string_member ("id", my_id);
+            o.set_string_member ("name", name);
+            o.set_string_member ("color", color);
+            o.set_int_member ("slide", my_slide);
+            return o;
+        }
+
+        private void collab_wire (string session) {
+            collab = true;
+            collab_session = session;
+            var client = Singularity.Collab.Client.get_default ();
+            collab_raw_id = client.raw.connect ((sid, author, data) => {
+                if (sid != collab_session) return;
+                Json.Object? o = null;
+                try {
+                    var parser = new Json.Parser ();
+                    parser.load_from_data (data);
+                    o = parser.get_root ().get_object ();
+                } catch (Error e) {
+                    return;
+                }
+                string t = o.has_member ("t") ? o.get_string_member ("t") : "";
+                if (t == "deck") {
+                    current_deck = o.get_string_member ("deck");
+                    current_order = int_list (o, "order");
+                    emit_deck (o);
+                } else if (t == "presence") {
+                    string id = o.get_string_member ("id");
+                    if (id == my_id) return;
+                    var p = peers.has_key (id) ? peers[id] : new LivePeer ();
+                    p.id = id;
+                    p.name = o.get_string_member ("name");
+                    p.color = o.get_string_member ("color");
+                    p.slide = (int) o.get_int_member ("slide");
+                    peers[id] = p;
+                    peers_changed ();
+                } else if (t == "bye") {
+                    if (peers.unset (o.get_string_member ("id"))) peers_changed ();
+                }
+            });
+            collab_joined_id = client.joined.connect ((sid, who) => {
+                if (sid != collab_session || !hosting) return;
+                client.update_snapshot.begin (collab_session, encode (snapshot_json ()));
+                client.send_raw (collab_session, encode (presence_json ()));
+            });
+            collab_ended_id = client.ended.connect ((sid) => {
+                if (sid != collab_session) return;
+                collab_unwire ();
+                ended (_("The live presentation ended"));
+            });
+        }
+
+        private void collab_unwire () {
+            var client = Singularity.Collab.Client.get_default ();
+            if (collab_raw_id != 0) client.disconnect (collab_raw_id);
+            if (collab_joined_id != 0) client.disconnect (collab_joined_id);
+            if (collab_ended_id != 0) client.disconnect (collab_ended_id);
+            collab_raw_id = collab_joined_id = collab_ended_id = 0;
+            collab_session = "";
+        }
+
+        public async void host_collab (Bytes deck, Gee.List<int> order, Singularity.Collab.Person person, string title) throws Error {
+            var client = Singularity.Collab.Client.get_default ();
+            current_deck = Base64.encode (deck.get_data ());
+            current_order.clear ();
+            current_order.add_all (order);
+            if (collab && collab_session != "") {
+                yield client.invite (collab_session, person.id);
+                return;
+            }
+            hosting = true;
+            my_id = "u" + Uuid.string_random ().substring (0, 8);
+            string sid = yield client.share (person.id, "Presentation", title, encode (snapshot_json ()));
+            link = "";
+            collab_wire (sid);
+        }
+
+        public void join_collab (string session, string snapshot) {
+            hosting = false;
+            my_id = "u" + Uuid.string_random ().substring (0, 8);
+            collab_wire (session);
+            try {
+                var parser = new Json.Parser ();
+                parser.load_from_data (snapshot);
+                var o = parser.get_root ().get_object ();
+                current_deck = o.get_string_member ("deck");
+                current_order = int_list (o, "order");
+                var data = Base64.decode (current_deck);
+                remote_deck (new Bytes (data), new Gee.ArrayList<int> (), current_order, true, "");
+            } catch (Error e) {
+                warning ("slides: %s", e.message);
+            }
+            Singularity.Collab.Client.get_default ().send_raw (collab_session, encode (presence_json ()));
+        }
+
         public void publish (Bytes deck, Gee.Collection<int> dirty, Gee.List<int> order, bool design) {
             var o = new Json.Object ();
             o.set_string_member ("t", "deck");
@@ -261,7 +371,12 @@ namespace Singularity.Apps.Slides {
             o.set_array_member ("order", ints (order));
             o.set_boolean_member ("design", design);
             o.set_string_member ("who", name);
-            if (hosting) {
+            if (collab) {
+                current_deck = o.get_string_member ("deck");
+                current_order.clear ();
+                current_order.add_all (order);
+                if (collab_session != "") Singularity.Collab.Client.get_default ().send_raw (collab_session, encode (o));
+            } else if (hosting) {
                 current_deck = o.get_string_member ("deck");
                 current_order.clear ();
                 current_order.add_all (order);
@@ -273,6 +388,10 @@ namespace Singularity.Apps.Slides {
 
         public void presence (int slide_uid) {
             my_slide = slide_uid;
+            if (collab) {
+                if (collab_session != "") Singularity.Collab.Client.get_default ().send_raw (collab_session, encode (presence_json ()));
+                return;
+            }
             if (hosting) {
                 var pj = new Json.Object ();
                 pj.set_string_member ("t", "peers");
@@ -288,6 +407,16 @@ namespace Singularity.Apps.Slides {
         }
 
         public void leave () {
+            if (collab && collab_session != "") {
+                var bye = new Json.Object ();
+                bye.set_string_member ("t", "bye");
+                bye.set_string_member ("id", my_id);
+                var client = Singularity.Collab.Client.get_default ();
+                client.send_raw (collab_session, encode (bye));
+                string sid = collab_session;
+                collab_unwire ();
+                client.leave.begin (sid);
+            }
             if (server != null) {
                 foreach (var s in sockets.values) if (s.state == Soup.WebsocketState.OPEN) s.close (Soup.WebsocketCloseCode.GOING_AWAY, null);
                 server.disconnect ();

@@ -2523,16 +2523,14 @@ namespace Singularity.Apps.Slides {
                 string[] parts = ch.link.split ("\t");
                 if (parts.length < 3) continue;
                 try {
-                    var bus = yield GLib.Bus.get (BusType.SESSION);
-                    var reply = yield bus.call ("dev.sinty.spreadsheet", "/dev/sinty/spreadsheet/Charts", "dev.sinty.Spreadsheet1", "ChartXml",
-                        new Variant ("(sss)", parts[0], parts[1], parts[2]), new VariantType ("(s)"), DBusCallFlags.NONE, 30000, null);
+                    var reply = yield Capabilities.call (Contracts.SPREADSHEET, "ChartXml", new Variant ("(sss)", parts[0], parts[1], parts[2]), new VariantType ("(s)"));
                     var spec = Singularity.Charts.DrawingML.read_chart (reply.get_child_value (0).get_string ());
                     if (spec == null) throw new IOError.INVALID_DATA (_("The chart could not be read"));
                     targets.add (ch);
                     specs.add (spec);
                 } catch (Error e) {
                     failed++;
-                    if (e is DBusError.SERVICE_UNKNOWN) {
+                    if (e is DBusError.SERVICE_UNKNOWN || e is IOError.NOT_SUPPORTED) {
                         last_error = _("Spreadsheet is not available");
                     } else {
                         DBusError.strip_remote_error (e);
@@ -3749,6 +3747,56 @@ namespace Singularity.Apps.Slides {
                     stop_live ();
                 }
             });
+        }
+
+        public void start_live_collab (Singularity.Collab.Person person) {
+            var order = new Gee.ArrayList<int> ();
+            foreach (var sl in doc.pres.slides) order.add (sl.uid);
+            Bytes deck;
+            try {
+                deck = new Bytes (Document.serialize_as (doc.pres, "pptx"));
+            } catch (Error e) {
+                show_error (_("Could Not Share"), e.message);
+                return;
+            }
+            string t = title ?? "";
+            if (t == "") t = _("Presentation");
+            if (live == null || !live.collab) {
+                stop_live ();
+                live = new LiveSession (CommentsPanel.me ());
+                live.remote_deck.connect (live_apply);
+                live.peers_changed.connect (live_peers);
+                live.ended.connect ((reason) => {
+                    add_toast (new Toast (reason));
+                    stop_live ();
+                });
+            }
+            var session = live;
+            session.host_collab.begin (deck, order, person, t, (o, res) => {
+                try {
+                    session.host_collab.end (res);
+                    live_snapshot ();
+                    live_order_sig = order_sig (order);
+                    if (doc.slide != null) session.presence (doc.slide.uid);
+                    add_toast (new Toast (_("Invitation sent to %s").printf (person.name)));
+                } catch (Error e) {
+                    show_error (_("Could Not Share"), e.message);
+                    stop_live ();
+                }
+            });
+        }
+
+        public void join_live_collab (string session, string snapshot, string from) {
+            stop_live ();
+            live = new LiveSession (CommentsPanel.me ());
+            live.remote_deck.connect (live_apply);
+            live.peers_changed.connect (live_peers);
+            live.ended.connect ((reason) => {
+                add_toast (new Toast (reason));
+                stop_live ();
+            });
+            live.join_collab (session, snapshot);
+            add_toast (new Toast (_("You are editing with %s").printf (from)));
         }
 
         public void stop_live () {

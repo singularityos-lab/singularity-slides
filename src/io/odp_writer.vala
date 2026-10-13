@@ -804,7 +804,8 @@ namespace Singularity.Apps.Slides {
         }
 
         private void write_equation (XmlOut x, EquationElement q, Ctx c) {
-            string mml = q.mathml != "" ? q.mathml : (q.omml != "" ? EquationCodec.mathml_from_omml (q.omml) : "");
+            string mml = q.mathml;
+            if (mml == "" && q.omml != "") mml = EquationCodec.mathml_from_omml (q.omml);
             x.start ("draw:frame");
             common_attrs (x, q, c);
             geometry (x, q);

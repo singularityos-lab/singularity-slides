@@ -223,6 +223,46 @@ void test_chart_kind_changes () {
     }
 }
 
+Bytes glb_of (string json, uint32 bin_len) {
+    var b = new ByteArray ();
+    uint8[] head = { 'g', 'l', 'T', 'F', 2, 0, 0, 0, 0, 0, 0, 0 };
+    b.append (head);
+    uint32 jl = (uint32) json.length;
+    uint8[] jh = { (uint8) jl, (uint8) (jl >> 8), (uint8) (jl >> 16), (uint8) (jl >> 24), 'J', 'S', 'O', 'N' };
+    b.append (jh);
+    b.append (json.data);
+    uint8[] bh = { (uint8) bin_len, (uint8) (bin_len >> 8), (uint8) (bin_len >> 16), (uint8) (bin_len >> 24), 'B', 'I', 'N', 0 };
+    b.append (bh);
+    b.append (new uint8[64]);
+    return ByteArray.free_to_bytes (b);
+}
+
+void test_damaged_models () {
+    string[] cases = {
+        "{\"nodes\":[{\"mesh\":7}],\"meshes\":[]}",
+        "{\"scene\":5,\"scenes\":[{\"nodes\":[0]}],\"nodes\":[{}]}",
+        "{\"scenes\":[{\"nodes\":[-3]}],\"nodes\":[{}]}",
+        "{\"nodes\":[{\"mesh\":0}],\"meshes\":[{\"primitives\":[{\"attributes\":{\"POSITION\":9}}]}],\"accessors\":[]}",
+        "{\"nodes\":[{\"mesh\":0}],\"meshes\":[{\"primitives\":[{\"attributes\":{\"POSITION\":0}}]}],\"accessors\":[{\"count\":4000000000,\"componentType\":5126,\"type\":\"VEC3\"}]}",
+        "{\"nodes\":[{\"mesh\":0}],\"meshes\":[{\"primitives\":[{\"attributes\":{\"POSITION\":0}}]}],\"accessors\":[{\"count\":3,\"componentType\":5126,\"type\":\"VEC3\",\"bufferView\":0}],\"bufferViews\":[{\"byteOffset\":-64}]}",
+        "{\"nodes\":[{\"mesh\":0}],\"meshes\":[{\"primitives\":[{\"attributes\":{\"POSITION\":0}}]}],\"accessors\":[{\"count\":3,\"componentType\":5126,\"type\":\"VEC3\",\"bufferView\":4}],\"bufferViews\":[]}",
+        "{\"nodes\":[{\"mesh\":0}],\"meshes\":[{}]}",
+        "{\"nodes\":[{\"mesh\":0}],\"meshes\":[{\"primitives\":[{\"attributes\":{\"POSITION\":0},\"material\":3}]}],\"accessors\":[{\"count\":3,\"componentType\":5126,\"type\":\"VEC3\"}],\"materials\":[]}",
+        "{\"nodes\":[{\"children\":[0,0,0,0]}]}",
+        "[1,2,3]"
+    };
+    foreach (unowned string c in cases) {
+        try {
+            MeshLoader.load_glb (glb_of (c, 64));
+        } catch (Error e) {
+        }
+    }
+    try {
+        MeshLoader.load_glb (glb_of ("{}", (uint32) 0xFFFFFFF0U));
+    } catch (Error e) {
+    }
+}
+
 void main () {
     Intl.setlocale (LocaleCategory.ALL, "C.UTF-8");
     test_templates_render ();
@@ -236,5 +276,6 @@ void main () {
     }
     test_transitions ();
     test_chart_kind_changes ();
+    test_damaged_models ();
     print ("render tests passed\n");
 }

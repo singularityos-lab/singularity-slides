@@ -133,6 +133,7 @@ namespace Singularity.Apps.Slides {
         }
 
         private static uint32 u32 (uint8[] d, int o) {
+            if (o < 0 || (int64) o + 4 > d.length) return 0;
             return (uint32) d[o] | ((uint32) d[o + 1] << 8) | ((uint32) d[o + 2] << 16) | ((uint32) d[o + 3] << 24);
         }
 
@@ -194,6 +195,7 @@ namespace Singularity.Apps.Slides {
 
         private class Gltf {
             public Json.Object root;
+            public int visits;
             public uint8[] bin;
         }
 
@@ -216,19 +218,30 @@ namespace Singularity.Apps.Slides {
             }
         }
 
+        private static Json.Object element (Json.Object root, string member, int64 index) throws Error {
+            if (!root.has_member (member)) throw new IOError.INVALID_DATA (_("The 3D model is damaged"));
+            var array = root.get_array_member (member);
+            if (array == null || index < 0 || index >= array.get_length ()) throw new IOError.INVALID_DATA (_("The 3D model is damaged"));
+            var obj = array.get_object_element ((uint) index);
+            if (obj == null) throw new IOError.INVALID_DATA (_("The 3D model is damaged"));
+            return obj;
+        }
+
         private static double[] accessor (Gltf g, int index, out int comps) throws Error {
-            var accs = g.root.get_array_member ("accessors");
-            var a = accs.get_object_element (index);
+            comps = 1;
+            var a = element (g.root, "accessors", index);
             int64 count = a.get_int_member ("count");
             int64 ct = a.get_int_member ("componentType");
             string type = a.get_string_member ("type");
             comps = type == "SCALAR" ? 1 : (type == "VEC2" ? 2 : (type == "VEC3" ? 3 : 4));
+            if (count < 0 || count > (1 << 24)) throw new IOError.INVALID_DATA (_("The 3D model is damaged"));
             var result = new double[count * comps];
             if (!a.has_member ("bufferView")) return result;
-            var bv = g.root.get_array_member ("bufferViews").get_object_element ((uint) a.get_int_member ("bufferView"));
+            var bv = element (g.root, "bufferViews", a.get_int_member ("bufferView"));
             int64 off = (bv.has_member ("byteOffset") ? bv.get_int_member ("byteOffset") : 0) + (a.has_member ("byteOffset") ? a.get_int_member ("byteOffset") : 0);
             int cs = comp_size (ct);
             int64 stride = bv.has_member ("byteStride") ? bv.get_int_member ("byteStride") : cs * comps;
+            if (off < 0 || stride < 0) throw new IOError.INVALID_DATA (_("The 3D model is damaged"));
             for (int64 i = 0; i < count; i++) {
                 for (int c = 0; c < comps; c++) {
                     int64 o = off + i * stride + c * cs;
@@ -241,15 +254,18 @@ namespace Singularity.Apps.Slides {
 
         private static void add_node (Gltf g, MeshBuilder m, int index, double[] parent, int depth) throws Error {
             if (depth > 32) return;
-            var n = g.root.get_array_member ("nodes").get_object_element (index);
+            if (++g.visits > 65536) throw new IOError.INVALID_DATA (_("The 3D model is damaged"));
+            var n = element (g.root, "nodes", index);
             var mat = mat_mul (parent, node_matrix (n));
             if (n.has_member ("mesh")) {
-                var mesh = g.root.get_array_member ("meshes").get_object_element ((uint) n.get_int_member ("mesh"));
+                var mesh = element (g.root, "meshes", n.get_int_member ("mesh"));
+                if (!mesh.has_member ("primitives")) throw new IOError.INVALID_DATA (_("The 3D model is damaged"));
                 foreach (var pn in mesh.get_array_member ("primitives").get_elements ()) {
                     var prim = pn.get_object ();
+                    if (prim == null || !prim.has_member ("attributes")) continue;
                     if (prim.has_member ("mode") && prim.get_int_member ("mode") != 4) continue;
                     var attrs = prim.get_object_member ("attributes");
-                    if (!attrs.has_member ("POSITION")) continue;
+                    if (attrs == null || !attrs.has_member ("POSITION")) continue;
                     int pc;
                     var p = accessor (g, (int) attrs.get_int_member ("POSITION"), out pc);
                     int base_index = m.vertex_count ();
@@ -259,7 +275,7 @@ namespace Singularity.Apps.Slides {
                     }
                     float r = 0.75f, gg = 0.76f, b = 0.8f;
                     if (prim.has_member ("material") && g.root.has_member ("materials")) {
-                        var mt = g.root.get_array_member ("materials").get_object_element ((uint) prim.get_int_member ("material"));
+                        var mt = element (g.root, "materials", prim.get_int_member ("material"));
                         if (mt.has_member ("pbrMetallicRoughness")) {
                             var pbr = mt.get_object_member ("pbrMetallicRoughness");
                             if (pbr.has_member ("baseColorFactor")) {
@@ -280,6 +296,7 @@ namespace Singularity.Apps.Slides {
                         for (int i = 0; i < verts; i++) idx += i;
                     }
                     for (int i = 0; i + 2 < idx.length; i += 3) {
+                        if (idx[i] < 0 || idx[i + 1] < 0 || idx[i + 2] < 0) continue;
                         if (idx[i] >= verts || idx[i + 1] >= verts || idx[i + 2] >= verts) continue;
                         m.triangle (base_index + idx[i], base_index + idx[i + 1], base_index + idx[i + 2], r, gg, b);
                     }
@@ -295,9 +312,10 @@ namespace Singularity.Apps.Slides {
             string? json = null;
             uint8[] bin = {};
             while (off + 8 <= d.length) {
-                int len = (int) u32 (d, off);
+                int64 len64 = u32 (d, off);
                 uint32 type = u32 (d, off + 4);
-                if (off + 8 + len > d.length) break;
+                if (off + 8 + len64 > d.length) break;
+                int len = (int) len64;
                 if (type == 0x4E4F534A) {
                     var buf = new uint8[len + 1];
                     Memory.copy (buf, &d[off + 8], len);
@@ -311,13 +329,15 @@ namespace Singularity.Apps.Slides {
             var parser = new Json.Parser ();
             parser.load_from_data (json.make_valid (), -1);
             var g = new Gltf ();
-            g.root = parser.get_root ().get_object ();
+            var top = parser.get_root ();
+            if (top == null || top.get_node_type () != Json.NodeType.OBJECT) throw new IOError.INVALID_DATA (_("The 3D model is damaged"));
+            g.root = top.get_object ();
             g.bin = bin;
             var m = new MeshBuilder ();
             var roots = new Gee.ArrayList<int> ();
             if (g.root.has_member ("scenes")) {
-                int sc = g.root.has_member ("scene") ? (int) g.root.get_int_member ("scene") : 0;
-                var scene = g.root.get_array_member ("scenes").get_object_element (sc);
+                int64 sc = g.root.has_member ("scene") ? g.root.get_int_member ("scene") : 0;
+                var scene = element (g.root, "scenes", sc);
                 if (scene.has_member ("nodes")) foreach (var n in scene.get_array_member ("nodes").get_elements ()) roots.add ((int) n.get_int ());
             } else if (g.root.has_member ("nodes")) {
                 for (int i = 0; i < g.root.get_array_member ("nodes").get_length (); i++) roots.add (i);

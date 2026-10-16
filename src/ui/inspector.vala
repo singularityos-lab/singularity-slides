@@ -1163,7 +1163,11 @@ namespace Singularity.Apps.Slides {
             var wg = group (_("Text Effects"));
             color (wg, _("Text Outline"), fx.text_outline, true, (v) => fx.text_outline = v);
             spin (wg, _("Outline Width"), 0.25, 20, 0.25, fx.text_outline_width, 2, (v) => fx.text_outline_width = v, "to-width");
-            string grad_a = fx.text_fill.contains (">") ? fx.text_fill.split (">")[0] : "";
+            string grad_a = "";
+            if (fx.text_fill.contains (">")) {
+                string[] stops = fx.text_fill.split (">");
+                grad_a = stops[0];
+            }
             color (wg, _("Gradient Text"), grad_a, true, (v) => fx.text_fill = v == "" ? "" : v + ">" + ColorSpec.tint (v, 0.55, 0));
             color (wg, _("Text Glow"), fx.text_glow, true, (v) => {
                 fx.text_glow = v;

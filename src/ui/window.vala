@@ -2347,6 +2347,32 @@ namespace Singularity.Apps.Slides {
             inspector.rebuild ();
         }
 
+        public void agent_edit (string label, owned Document.EditFunc f) {
+            canvas.commit_edit ();
+            edit (label, (owned) f);
+            doc.current_slide = doc.current_slide.clamp (0, int.max (0, doc.pres.slides.size - 1));
+            sidebar.thumbs.clear ();
+            sidebar.load (doc.pres, doc.current_slide);
+            if (view_mode == ViewMode.SORTER) sorter.load (doc.pres, doc.current_slide);
+            show_current ();
+        }
+
+        public string save_quietly (string path) throws Error {
+            canvas.commit_edit ();
+            string target = path;
+            if (target == "") target = doc.path ?? "";
+            if (target == "") {
+                string dir = Environment.get_user_special_dir (UserDirectory.DOCUMENTS) ?? Environment.get_home_dir ();
+                string name = doc.pres.properties.title != "" ? doc.pres.properties.title : _("Untitled Presentation");
+                target = Path.build_filename (dir, name.replace ("/", "-") + ".pptx");
+            }
+            string low = target.down ();
+            if (!low.has_suffix (".pptx") && !low.has_suffix (".odp")) target += ".pptx";
+            doc.save_to (target);
+            update_title ();
+            return target;
+        }
+
         public void apply_theme (ThemePreset preset) {
             canvas.commit_edit ();
             edit (_("Change Theme"), () => Factory.apply_theme (doc.pres, preset));

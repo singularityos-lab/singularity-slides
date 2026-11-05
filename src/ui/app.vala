@@ -58,6 +58,7 @@ namespace Singularity.Apps.Slides {
             about_description = _("Create and present slideshows");
             IconTheme.get_for_display (Gdk.Display.get_default ()).add_resource_path ("/dev/sinty/slides/icons");
             add_app_css (CSS);
+            SlidesIntents.install (this);
             Singularity.Text.SpellIntegration.install (this);
 
             var new_action = new SimpleAction ("new", null);

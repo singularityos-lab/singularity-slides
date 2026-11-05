@@ -155,6 +155,7 @@ ui = files(
   'src/ui/dialogs.vala',
   'src/ui/presenter.vala',
   'src/ui/window.vala',
+  'src/ui/agent_intents.vala',
   'src/ui/app.vala',
   'src/ui/cloud_actions.vala',
   'src/ui/formula_bridge.vala',

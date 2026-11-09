@@ -111,12 +111,14 @@ namespace Singularity.Apps.Slides {
             double duration = 0;
             Bytes? poster = null;
             bool video = m.is_video;
-            new Thread<bool> ("slides-media-probe", () => {
-                probe (path, 1.0, 1280, out duration, out poster);
-                Idle.add (fill.callback);
-                return true;
-            });
-            yield;
+            try {
+                yield Async.run<bool>((c) => {
+                    probe (path, 1.0, 1280, out duration, out poster);
+                    return true;
+                }, Async.Qos.UTILITY);
+            } catch (Error e) {
+                warning("%s", e.message);
+            }
             if (duration > 0) m.length = duration;
             if (video && poster != null && m.poster == null) {
                 m.poster = poster;

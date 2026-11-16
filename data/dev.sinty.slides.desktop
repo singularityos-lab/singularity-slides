@@ -6,6 +6,7 @@ Icon=dev.sinty.slides
 Terminal=false
 Type=Application
 Categories=Office;Presentation;
+X-Sinty-FormFactors=desktop;tablet;phone
 MimeType=application/vnd.openxmlformats-officedocument.presentationml.presentation;application/vnd.openxmlformats-officedocument.presentationml.template;application/vnd.openxmlformats-officedocument.presentationml.slideshow;application/vnd.oasis.opendocument.presentation;application/vnd.oasis.opendocument.presentation-template;
 Keywords=presentation;slides;slideshow;powerpoint;keynote;impress;pptx;odp;deck;
 StartupWMClass=dev.sinty.slides

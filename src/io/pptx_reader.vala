@@ -2158,7 +2158,7 @@ namespace Singularity.Apps.Slides {
             Element? e = null;
             if (uri == Ooxml.URI_TABLE) {
                 Xml.Node* tbl = XmlIn.child (data, "tbl");
-                if (tbl != null) e = parse_table (tbl);
+                if (tbl != null) e = parse_table (tbl, Ooxml.pt (lattr (XmlIn.find (n, "xfrm/ext"), "cy", 0)));
             } else if (uri == Ooxml.URI_CHART) {
                 string? target = rel_target (rid (XmlIn.child (data, "chart"), "id"));
                 if (target != null) e = read_chart (target);
@@ -2259,7 +2259,21 @@ namespace Singularity.Apps.Slides {
             return g;
         }
 
-        private TableElement parse_table (Xml.Node* tbl) {
+        private static double row_minimum (Gee.ArrayList<TableCell> row) {
+            double best = 0;
+            foreach (var cell in row) {
+                double h = cell.text.inset_top + cell.text.inset_bottom;
+                foreach (var p in cell.text.paragraphs) {
+                    double size = 0;
+                    foreach (var r in p.runs) size = double.max (size, r.size);
+                    h += (size > 0 ? size : 18) * 1.2;
+                }
+                best = double.max (best, h);
+            }
+            return best;
+        }
+
+        private TableElement parse_table (Xml.Node* tbl, double frame_h = 0) {
             var t = new TableElement (0, 0, 0, 0);
             Xml.Node* pr = XmlIn.child (tbl, "tblPr");
             t.first_row = battr (pr, "firstRow", false);
@@ -2326,6 +2340,18 @@ namespace Singularity.Apps.Slides {
                 while (row.size < cols) row.add (new TableCell ());
                 while (row.size > cols && cols > 0) row.remove_at (row.size - 1);
                 t.cells.add (row);
+            }
+            double known = 0;
+            int unknown = 0;
+            for (int r = 0; r < t.row_heights.size; r++) {
+                if (t.row_heights[r] > 0) known += t.row_heights[r];
+                else unknown++;
+            }
+            for (int r = 0; r < t.row_heights.size && r < t.cells.size; r++) {
+                if (t.row_heights[r] > 0) continue;
+                double share = frame_h > known ? (frame_h - known) / unknown : 0;
+                double least = row_minimum (t.cells[r]);
+                if (t.row_heights[r] <= 0) t.row_heights[r] = double.max (share, least);
             }
             for (int r = 0; r < t.rows; r++) {
                 for (int c = 0; c < t.cols; c++) {

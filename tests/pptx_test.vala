@@ -893,6 +893,19 @@ void test_fixture_minimal () throws Error {
     compare_pres (p, again, "fixture minimal round trip");
 }
 
+void test_zero_height_rows () throws Error {
+    var p = read_fixture ("pptx-zero-rows", false);
+    TableElement? t = null;
+    foreach (var e in p.slides[0].elements) if (e is TableElement) t = (TableElement) e;
+    check (t != null && t.rows == 5, "table read");
+    double sum = 0;
+    foreach (var h in t.row_heights) {
+        check (h > 20, "row height %.1f".printf (h));
+        sum += h;
+    }
+    check (near (sum, t.h, 1), "rows fill the frame: %.1f of %.1f".printf (sum, t.h));
+}
+
 void test_errors () {
     try {
         new PptxReader (new ZipReader (new ZipWriter ().finish ())).read ();
@@ -918,6 +931,7 @@ void main () {
         test_synthetic ();
         test_fixture_realistic ();
         test_fixture_minimal ();
+        test_zero_height_rows ();
         test_errors ();
     } catch (Error e) {
         error ("%s", e.message);

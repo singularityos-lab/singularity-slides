@@ -1167,6 +1167,7 @@ namespace Singularity.Apps.Slides {
         public int hidden_cell_col = -1;
 
         private void draw_table (Cairo.Context cr, RenderContext ctx, TableElement t, double x, double y) {
+            fit_table_rows (ctx, t);
             double ox = t.x, oy = t.y;
             t.x = x;
             t.y = y;

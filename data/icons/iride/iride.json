@@ -1,0 +1,341 @@
+{
+ "format": 1,
+ "canvas": [
+  236,
+  236
+ ],
+ "box": [
+  0,
+  0,
+  236,
+  236
+ ],
+ "stack": [
+  {
+   "shadow": {
+    "dx": 0,
+    "dy": 5,
+    "blur": 6,
+    "color": "#1a3342",
+    "opacity": 0.4,
+    "region": [
+     -20,
+     -20,
+     276,
+     276
+    ]
+   },
+   "stack": [
+    {
+     "layer": "layers/000.svg",
+     "piece": "sheet"
+    },
+    {
+     "layer": "layers/001.svg",
+     "piece": "sheet"
+    }
+   ]
+  },
+  {
+   "clip": "M60 18H150L194 62V196Q194 214 176 214H60Q42 214 42 196V36Q42 18 60 18Z",
+   "stack": [
+    {
+     "layer": "layers/002.svg",
+     "piece": "sheet"
+    }
+   ]
+  },
+  {
+   "rim": "M60 18H150L194 62V196Q194 214 176 214H60Q42 214 42 196V36Q42 18 60 18Z",
+   "light": [
+    42.0,
+    18.0,
+    194.0,
+    214.0
+   ],
+   "piece": "sheet"
+  },
+  {
+   "shadow": {
+    "dx": 0,
+    "dy": 3,
+    "blur": 3,
+    "color": "#3d7a94",
+    "opacity": 0.35,
+    "region": [
+     -20,
+     -20,
+     276,
+     276
+    ]
+   },
+   "stack": [
+    {
+     "layer": "layers/004.svg",
+     "piece": "sheet"
+    }
+   ]
+  },
+  {
+   "shadow": {
+    "dx": 0,
+    "dy": 3,
+    "blur": 3.5,
+    "color": "#b8401c",
+    "opacity": 0.35,
+    "region": [
+     -20,
+     -20,
+     276,
+     276
+    ]
+   },
+   "stack": [
+    {
+     "layer": "layers/005.svg",
+     "piece": "sheet"
+    }
+   ]
+  },
+  {
+   "layer": "layers/006.svg",
+   "piece": "sheet"
+  },
+  {
+   "layer": "layers/007.svg",
+   "piece": "title"
+  },
+  {
+   "layer": "layers/008.svg",
+   "piece": "title"
+  },
+  {
+   "layer": "layers/009.svg",
+   "piece": "bar-1"
+  },
+  {
+   "layer": "layers/010.svg",
+   "piece": "bar-2"
+  },
+  {
+   "layer": "layers/011.svg",
+   "piece": "bar-3"
+  },
+  {
+   "layer": "layers/012.svg",
+   "piece": "pie"
+  },
+  {
+   "layer": "layers/013.svg",
+   "piece": "pie"
+  },
+  {
+   "layer": "layers/014.svg",
+   "piece": "dots"
+  },
+  {
+   "layer": "layers/015.svg",
+   "piece": "dots"
+  },
+  {
+   "layer": "layers/016.svg",
+   "piece": "dots"
+  },
+  {
+   "layer": "layers/017.svg",
+   "piece": "dots"
+  }
+ ],
+ "motion": [
+  {
+   "piece": "sheet",
+   "origin": [
+    118.0,
+    118.0
+   ],
+   "tracks": [
+    {
+     "kind": "opacity",
+     "from": [
+      1
+     ],
+     "at": 720,
+     "duration": 75,
+     "ease": "linear"
+    }
+   ]
+  },
+  {
+   "piece": "title",
+   "origin": [
+    118.0,
+    118.0
+   ],
+   "tracks": [
+    {
+     "kind": "translate",
+     "from": [
+      125.08,
+      0
+     ],
+     "at": 0,
+     "duration": 280,
+     "ease": "out"
+    }
+   ],
+   "clip": [
+    56.0,
+    72.0,
+    180.0,
+    146.0
+   ]
+  },
+  {
+   "piece": "bar-1",
+   "origin": [
+    72.0,
+    135.0
+   ],
+   "tracks": [
+    {
+     "kind": "translate",
+     "from": [
+      125.08,
+      0
+     ],
+     "at": 0,
+     "duration": 280,
+     "ease": "out"
+    },
+    {
+     "kind": "scale",
+     "from": [
+      1,
+      0.2
+     ],
+     "at": 300,
+     "duration": 180,
+     "ease": "spring"
+    }
+   ],
+   "clip": [
+    56.0,
+    72.0,
+    180.0,
+    146.0
+   ]
+  },
+  {
+   "piece": "bar-2",
+   "origin": [
+    84.0,
+    135.0
+   ],
+   "tracks": [
+    {
+     "kind": "translate",
+     "from": [
+      125.08,
+      0
+     ],
+     "at": 0,
+     "duration": 280,
+     "ease": "out"
+    },
+    {
+     "kind": "scale",
+     "from": [
+      1,
+      0.2
+     ],
+     "at": 360,
+     "duration": 180,
+     "ease": "spring"
+    }
+   ],
+   "clip": [
+    56.0,
+    72.0,
+    180.0,
+    146.0
+   ]
+  },
+  {
+   "piece": "bar-3",
+   "origin": [
+    96.0,
+    135.0
+   ],
+   "tracks": [
+    {
+     "kind": "translate",
+     "from": [
+      125.08,
+      0
+     ],
+     "at": 0,
+     "duration": 280,
+     "ease": "out"
+    },
+    {
+     "kind": "scale",
+     "from": [
+      1,
+      0.2
+     ],
+     "at": 420,
+     "duration": 180,
+     "ease": "spring"
+    }
+   ],
+   "clip": [
+    56.0,
+    72.0,
+    180.0,
+    146.0
+   ]
+  },
+  {
+   "piece": "pie",
+   "origin": [
+    150.0,
+    111.0
+   ],
+   "tracks": [
+    {
+     "kind": "translate",
+     "from": [
+      125.08,
+      0
+     ],
+     "at": 0,
+     "duration": 280,
+     "ease": "out"
+    },
+    {
+     "kind": "rotate",
+     "from": [
+      -270
+     ],
+     "at": 280,
+     "duration": 440,
+     "ease": "out"
+    }
+   ],
+   "clip": [
+    56.0,
+    72.0,
+    180.0,
+    146.0
+   ]
+  },
+  {
+   "piece": "dots",
+   "origin": [
+    118.0,
+    118.0
+   ],
+   "tracks": []
+  }
+ ]
+}

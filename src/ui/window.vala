@@ -70,6 +70,10 @@ namespace Singularity.Apps.Slides {
             shortcuts.add_shortcut (new Shortcut (ShortcutTrigger.parse_string ("F7"), new NamedAction ("win.spelling")));
             ((Widget) this).add_controller (shortcuts);
             close_request.connect (on_close_request);
+            ((Widget) this).destroy.connect (() => {
+                if (autosave_id != 0) Source.remove (autosave_id);
+                autosave_id = 0;
+            });
             var drop = new DropTarget (typeof (Gdk.FileList), Gdk.DragAction.COPY);
             drop.drop.connect ((value, x, y) => {
                 var list = (Gdk.FileList) value.get_boxed ();
@@ -591,6 +595,79 @@ namespace Singularity.Apps.Slides {
             doc.checkpoint (_("Edit Notes"), "notes");
             s.notes = t;
             doc.touch ();
+        }
+
+        private Variant? moving = null;
+
+        public void prepare_move () throws Singularity.Migration.MigrationError {
+            moving = null;
+            if (slideshow != null) throw new Singularity.Migration.MigrationError.UNSUPPORTED (_("End the slide show before moving Slides"));
+            if (live != null) throw new Singularity.Migration.MigrationError.UNSUPPORTED (_("Leave the shared session before moving Slides"));
+            if (doc == null) return;
+            canvas.commit_edit ();
+            try {
+                moving = doc.save_state ();
+            } catch (Error e) {
+                throw new Singularity.Migration.MigrationError.FAILED (_("The presentation could not be prepared for the move: %s").printf (e.message));
+            }
+        }
+
+        public Variant save_migration () {
+            var d = new VariantDict ();
+            if (doc == null) return d.end ();
+            if (moving != null) d.insert_value ("document", moving);
+            moving = null;
+            string mode = view_mode == ViewMode.SORTER ? "sorter" : (view_mode == ViewMode.MASTER ? "master" : "normal");
+            d.insert_value ("view", new Variant.string (mode));
+            var ids = new VariantBuilder (new VariantType ("ai"));
+            foreach (int id in canvas.selected_ids ()) ids.add ("i", id);
+            d.insert_value ("selection", ids.end ());
+            d.insert_value ("zoom", new Variant.double (canvas.zoom));
+            d.insert_value ("panel", new Variant.string (right_revealer.reveal_child ? right_stack.visible_child_name : ""));
+            return d.end ();
+        }
+
+        public string? migration_file () {
+            return doc != null && doc.path != null ? Singularity.Migration.portable_path (File.new_for_path (doc.path)) : null;
+        }
+
+        public void restore_migration (Variant data) {
+            var d = new VariantDict (data);
+            var state = d.lookup_value ("document", VariantType.VARDICT);
+            if (state == null) return;
+            Document moved;
+            try {
+                moved = Document.from_state (state);
+            } catch (Error e) {
+                show_error (_("Could Not Open"), e.message);
+                return;
+            }
+            int slide = moved.current_slide;
+            load_document (moved);
+            go_to_slide (slide);
+            var view = d.lookup_value ("view", VariantType.STRING);
+            if (view != null && view.get_string () == "sorter") set_view (ViewMode.SORTER);
+            else if (view != null && view.get_string () == "master") set_view (ViewMode.MASTER);
+            var zoom = d.lookup_value ("zoom", VariantType.DOUBLE);
+            if (zoom != null) {
+                if (zoom.get_double () <= 0) canvas.zoom_fit ();
+                else canvas.zoom_to (zoom.get_double ());
+            }
+            var selection = d.lookup_value ("selection", new VariantType ("ai"));
+            if (selection != null) {
+                int[] ids = {};
+                foreach (var id in selection) ids += id.get_int32 ();
+                canvas.reselect_by_ids (ids);
+            }
+            var panel = d.lookup_value ("panel", VariantType.STRING);
+            if (panel != null) {
+                string name = panel.get_string ();
+                if (name == "") {
+                    if (right_revealer.reveal_child) toggle_panel (right_stack.visible_child_name);
+                } else if (right_stack.get_child_by_name (name) != null && !(right_revealer.reveal_child && right_stack.visible_child_name == name)) {
+                    toggle_panel (name);
+                }
+            }
         }
 
         public void go_to_slide (int i) {

@@ -214,6 +214,59 @@ namespace Singularity.Apps.Slides {
             changed ();
         }
 
+        private static Variant packed (Presentation p) throws Error {
+            return new Variant.from_bytes (VariantType.BYTESTRING, new Bytes (serialize (p, FileKind.PPTX)), true);
+        }
+
+        private static Variant pack_steps (Gee.ArrayList<UndoStep> list) throws Error {
+            var b = new VariantBuilder (new VariantType ("a(sayis)"));
+            foreach (var step in list) b.add ("(s@ayis)", step.label, packed (step.state), step.slide, step.key);
+            return b.end ();
+        }
+
+        private static void unpack_steps (Variant v, Gee.ArrayList<UndoStep> list) throws Error {
+            list.clear ();
+            var it = v.iterator ();
+            string label, key;
+            Variant data;
+            int slide;
+            while (it.next ("(s@ayis)", out label, out data, out slide, out key)) {
+                list.add (new UndoStep (label, load_bytes (data.get_data_as_bytes ().get_data (), "moved.pptx"), slide, key));
+            }
+        }
+
+        public Variant save_state () throws Error {
+            var d = new VariantDict ();
+            d.insert_value ("presentation", packed (pres));
+            d.insert_value ("path", new Variant.string (path != null ? Singularity.Migration.portable_path (File.new_for_path (path)) : ""));
+            d.insert_value ("password", new Variant.string (password));
+            d.insert_value ("modified", new Variant.boolean (modified));
+            d.insert_value ("slide", new Variant.int32 (current_slide));
+            d.insert_value ("undo", pack_steps (undo_stack));
+            d.insert_value ("redo", pack_steps (redo_stack));
+            return d.end ();
+        }
+
+        public static Document from_state (Variant state) throws Error {
+            var d = new VariantDict (state);
+            var data = d.lookup_value ("presentation", VariantType.BYTESTRING);
+            if (data == null) throw new FormatError.INVALID (_("The moved presentation is missing."));
+            var doc = new Document (load_bytes (data.get_data_as_bytes ().get_data (), "moved.pptx"));
+            var saved_path = d.lookup_value ("path", VariantType.STRING);
+            if (saved_path != null && saved_path.get_string () != "") doc.path = Singularity.Migration.local_file (saved_path.get_string ()).get_path ();
+            var saved_password = d.lookup_value ("password", VariantType.STRING);
+            if (saved_password != null) doc.password = saved_password.get_string ();
+            var saved_modified = d.lookup_value ("modified", VariantType.BOOLEAN);
+            if (saved_modified != null) doc.modified = saved_modified.get_boolean ();
+            var saved_slide = d.lookup_value ("slide", VariantType.INT32);
+            if (saved_slide != null) doc.current_slide = saved_slide.get_int32 ().clamp (0, int.max (doc.pres.slides.size - 1, 0));
+            var undo = d.lookup_value ("undo", new VariantType ("a(sayis)"));
+            if (undo != null) unpack_steps (undo, doc.undo_stack);
+            var redo = d.lookup_value ("redo", new VariantType ("a(sayis)"));
+            if (redo != null) unpack_steps (redo, doc.redo_stack);
+            return doc;
+        }
+
         public Slide? slide {
             owned get { return current_slide >= 0 && current_slide < pres.slides.size ? pres.slides[current_slide] : null; }
         }

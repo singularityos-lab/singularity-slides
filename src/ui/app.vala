@@ -2,7 +2,7 @@ using Gtk;
 
 namespace Singularity.Apps.Slides {
 
-    public class SlidesApp : Singularity.Application {
+    public class SlidesApp : Singularity.Application, Singularity.Migration.Migratable {
         public GLib.Settings? settings = null;
 
         public SlidesApp () {
@@ -339,7 +339,48 @@ namespace Singularity.Apps.Slides {
             w.present ();
         }
 
-        public override void open (File[] files, string hint) {
+        public void prepare_move () throws Singularity.Migration.MigrationError {
+            foreach (var w in get_windows ()) {
+                if (w is SlidesWindow) ((SlidesWindow) w).prepare_move ();
+            }
+        }
+
+        public Variant save_model () {
+            return new VariantDict ().end ();
+        }
+
+        public async void restore_model (Variant model) throws Error {
+        }
+
+        public string window_kind (Gtk.Window w) {
+            return (w is SlidesWindow) ? "slides" : "";
+        }
+
+        public Variant save_window (Gtk.Window w) {
+            return ((SlidesWindow) w).save_migration ();
+        }
+
+        public string[] files () {
+            string[] list = {};
+            foreach (var w in get_windows ()) {
+                string? path = (w is SlidesWindow) ? ((SlidesWindow) w).migration_file () : null;
+                if (path != null) list += path;
+            }
+            return list;
+        }
+
+        public async Gtk.Window? rebuild_window (string kind, Variant data) throws Error {
+            if (kind != "slides") return null;
+            foreach (var old in get_windows ().copy ()) {
+                var sw = old as SlidesWindow;
+                if (sw != null && sw.doc == null) sw.destroy ();
+            }
+            var w = new SlidesWindow (this);
+            w.restore_migration (data);
+            return w;
+        }
+
+                public override void open (File[] files, string hint) {
             foreach (var f in files) open_file (f, null);
         }
 
